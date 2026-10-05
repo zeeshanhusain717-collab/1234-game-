@@ -27,11 +27,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 3: Android SDK Licenses एक्सेप्ट करना (Fixes image error)
-      - name: Accept Android SDK Licenses
-        run: |
-          mkdir -p "$ANDROID_HOME/licenses"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+      # Step 3: Android SDK और ऑटो-लाइसेंस सेटअप (Fixes SDK License Crash)
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       # Step 4: Gradle 8.5 सेटअप
       - name: Setup Gradle
@@ -67,7 +65,7 @@ jobs:
               } 
           }
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories { 
                   google()
                   mavenCentral() 
@@ -120,14 +118,14 @@ jobs:
           }
           EOF
 
-      # Step 7: Android Manifest और Strings फाइल्स बनाना
+      # Step 7: Corrected Android Manifest और Strings फाइल्स बनाना
       - name: Generate Android Manifest and Resources
         run: |
-          # AndroidManifest.xml
+          # AndroidManifest.xml (Fixed permission tag attribute)
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:permission="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="true"
                   android:label="Pirate Match 3D Saga"
@@ -156,7 +154,7 @@ jobs:
           </resources>
           EOF
 
-      # Step 8: MainActivity.kt (WebView Container) बनाना
+      # Step 8: MainActivity.kt बनाना
       - name: Generate Kotlin MainActivity
         run: |
           cat > app/src/main/java/com/tilematch/game/MainActivity.kt <<'EOF'
@@ -882,7 +880,7 @@ jobs:
                       secondsPassed++;
                       const mins = String(Math.floor(secondsPassed / 60)).padStart(2, '0');
                       const secs = String(secondsPassed % 60).padStart(2, '0');
-                      document.getElementById('hud-timer').innerText = `⏱️ ${mins}:${secs}`;
+                      document.getElementById('hud-timer').innerText = `⏱️️ ${mins}:${secs}`;
                   }, 1000);
               }
 
@@ -956,14 +954,11 @@ jobs:
           </html>
           EOF
 
-      # Step 10: जब सारी फाइल्स बन जाएं, तब अंत में APK बिल्ड करना
+      # Step 10: डायरेक्ट Gradle कमांड से APK बनाना (Fast & Clean Build)
       - name: Build Android APK
-        run: |
-          gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
-      # Step 11: बने हुए APK को GitHub Artifacts में अपलोड करना
+      # Step 11: बने हुए APK को Artifacts में अपलोड करना
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
