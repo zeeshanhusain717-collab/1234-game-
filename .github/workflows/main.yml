@@ -16,31 +16,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: कोड चेकआउट
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Step 2: Java 17 सेटअप
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # Step 3: Android SDK Licenses एक्सेप्ट करना (Fixes image error)
+      - name: Accept Android SDK Licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      # Step 4: Gradle 8.5 सेटअप
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.5"
 
-      # 1. Project Directory & Configuration Setup
-      - name: Generate Android Project Structure
+      # Step 5: डायरेक्टरी स्ट्रक्चर बनाना
+      - name: Create Project Directories
         run: |
-          set -euo pipefail
           mkdir -p app/src/main/java/com/tilematch/game
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/assets
 
+      # Step 6: Gradle Config फाइल्स जनरेट करना
+      - name: Generate Gradle Configuration Files
+        run: |
           # gradle.properties
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
@@ -112,6 +120,9 @@ jobs:
           }
           EOF
 
+      # Step 7: Android Manifest और Strings फाइल्स बनाना
+      - name: Generate Android Manifest and Resources
+        run: |
           # AndroidManifest.xml
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -145,8 +156,8 @@ jobs:
           </resources>
           EOF
 
-      # 2. Android WebView Container Code
-      - name: Generate MainActivity
+      # Step 8: MainActivity.kt (WebView Container) बनाना
+      - name: Generate Kotlin MainActivity
         run: |
           cat > app/src/main/java/com/tilematch/game/MainActivity.kt <<'EOF'
           package com.tilematch.game
@@ -191,8 +202,8 @@ jobs:
           }
           EOF
 
-      # 3. Game HTML Engine (Fixed JS bug)
-      - name: Generate HTML Game Code
+      # Step 9: Game HTML Engine (Assets) बनाना
+      - name: Generate HTML Game Engine
         run: |
           cat > app/src/main/assets/game.html <<'EOF'
           <!DOCTYPE html>
@@ -945,16 +956,17 @@ jobs:
           </html>
           EOF
 
-      # 4. Generate Gradle Wrapper & Build Android APK
+      # Step 10: जब सारी फाइल्स बन जाएं, तब अंत में APK बिल्ड करना
       - name: Build Android APK
         run: |
           gradle wrapper --gradle-version 8.5
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      # 5. Save Built APK as Artifact
+      # Step 11: बने हुए APK को GitHub Artifacts में अपलोड करना
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PirateMatch3D-Saga-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+
